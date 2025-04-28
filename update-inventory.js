@@ -44,20 +44,29 @@ async function main() {
 
   // 2) Strip BOM & detect XML vs CSV
   let text = buffer.toString("utf8").trim();
-  // Remove any leading BOM
   text = text.replace(/^\uFEFF/, "");
   const isXml = text.startsWith("<");
 
   // 3) Parse into records
   let records;
   if (isXml) {
-    // —— XML BRANCH —— 
-    // Your file appears to be XML. Drop your XML parsing logic here.
-    // e.g. load an XML parser or use regex to pull out each record.
-    // For now, we’ll throw so you know you hit this branch:
-    throw new Error("Detected XML input; XML parsing not implemented yet.");
+    // —— XML BRANCH ——
+    const productBlocks = text.match(/<Product\b[\s\S]*?<\/Product>/gi) || [];
+    records = productBlocks.map(block => {
+      const get = (tag) => {
+        const m = block.match(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+        return m ? m[1].trim() : "";
+      };
+      return {
+        sku:   get("StockCodeNew"),
+        stock: Number(get("FreeStock") || 0),
+        cost:  Number(get("Price")     || 0),
+        brand: get("Brand"),
+        title: get("Description"),
+      };
+    });
   } else {
-    // —— CSV BRANCH —— (unchanged)
+    // —— CSV BRANCH ——
     const rows = parse(text, { columns: true, skip_empty_lines: true });
     records = rows.map(r => ({
       sku:   r["/Product/StockCodeNew"].trim(),
@@ -70,13 +79,11 @@ async function main() {
 
   // 4) Update Shopify
   for (const { sku, stock, cost } of records) {
-    // A) inventory
     await axios.post(
       `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2023-10/inventory_levels/set.json`,
       { inventory_item_id: sku, location_id: SHOPIFY_LOCATION_ID, available: stock },
       { headers: { "X-Shopify-Access-Token": SHOPIFY_TOKEN } }
     );
-    // B) cost on variant
     await axios.put(
       `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2023-10/variants/${sku}.json`,
       { variant: { id: sku, cost: cost } },
