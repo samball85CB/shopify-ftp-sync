@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "update-inventory.js",
   "license": "MIT",
-   "dependencies": {
--  "basic-ftp": "^4.7.0",
-+  "basic-ftp": "^5.0.5",
-   "csv-parse": "^5.4.0",
-   "axios": "^1.4.0"
- }
+  "dependencies": {
+    "basic-ftp": "^5.0.5",
+    "csv-parse": "^5.4.0",
+    "axios": "^1.4.0"
+  }
+}
+
 
