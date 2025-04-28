@@ -1,6 +1,6 @@
 const ftp = require("basic-ftp");
 const { Writable } = require("stream");
-const parseCsv = require("csv-parse/lib/sync");
+const { parse } = require("csv-parse/sync");
 const axios = require("axios");
 
 async function downloadToBuffer(client, path) {
@@ -43,7 +43,7 @@ async function main() {
 
   // 2) Parse CSV using your headers
   const text = buffer.toString("utf8");
-  const rows = parseCsv(text, { columns: true, skip_empty_lines: true });
+  const rows = parse(text, { columns: true, skip_empty_lines: true });
   const records = rows.map(r => ({
     sku:   r["/Product/StockCodeNew"].trim(),
     stock: Number(r["/Product/FreeStock"] || 0),
