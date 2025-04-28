@@ -3,6 +3,7 @@ const { Writable } = require("stream");
 const { parse } = require("csv-parse/sync");
 const axios = require("axios");
 
+// download remote FTP file into a Buffer
 async function downloadToBuffer(client, path) {
   const chunks = [];
   const writer = new Writable({
@@ -41,18 +42,33 @@ async function main() {
   const buffer = await downloadToBuffer(client, latest);
   client.close();
 
-  // 2) Parse CSV using your headers
-  const text = buffer.toString("utf8");
-  const rows = parse(text, { columns: true, skip_empty_lines: true });
-  const records = rows.map(r => ({
-    sku:   r["/Product/StockCodeNew"].trim(),
-    stock: Number(r["/Product/FreeStock"] || 0),
-    cost:  Number(r["/Product/Price"]      || 0),
-    brand: r["/Product/Brand"].trim(),
-    title: r["/Product/Description"].trim(),
-  }));
+  // 2) Strip BOM & detect XML vs CSV
+  let text = buffer.toString("utf8").trim();
+  // Remove any leading BOM
+  text = text.replace(/^\uFEFF/, "");
+  const isXml = text.startsWith("<");
 
-  // 3) Update Shopify
+  // 3) Parse into records
+  let records;
+  if (isXml) {
+    // —— XML BRANCH —— 
+    // Your file appears to be XML. Drop your XML parsing logic here.
+    // e.g. load an XML parser or use regex to pull out each record.
+    // For now, we’ll throw so you know you hit this branch:
+    throw new Error("Detected XML input; XML parsing not implemented yet.");
+  } else {
+    // —— CSV BRANCH —— (unchanged)
+    const rows = parse(text, { columns: true, skip_empty_lines: true });
+    records = rows.map(r => ({
+      sku:   r["/Product/StockCodeNew"].trim(),
+      stock: Number(r["/Product/FreeStock"] || 0),
+      cost:  Number(r["/Product/Price"]      || 0),
+      brand: r["/Product/Brand"].trim(),
+      title: r["/Product/Description"].trim(),
+    }));
+  }
+
+  // 4) Update Shopify
   for (const { sku, stock, cost } of records) {
     // A) inventory
     await axios.post(
